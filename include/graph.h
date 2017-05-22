@@ -3,6 +3,7 @@
 
 #include "node.h"
 #include <vector>
+#include <algorithm>
 
 template <class nodeType>
 class graph {
@@ -25,7 +26,8 @@ class graph {
         }
 
         void addEdge(unsigned int outNodeIndex, unsigned int inNodeIndex, double weight) {
-            nodes[outNodeIndex].addEdge(inNodeIndex, weight); //also add to the inNode?
+            nodes[outNodeIndex].addOutEdge(inNodeIndex, weight);
+            nodes[inNodeIndex].addInEdge(outNodeIndex, weight);
             return;
         }
 
@@ -41,8 +43,8 @@ class graph {
             std::vector<std::vector<unsigned int>> answer(nodes.size(), std::vector<unsigned int>(nodes.size(), 0));
 
             for (unsigned int i = 0 ; i <nodes.size() ; i++) {
-                for(unsigned int j = 0 ; j < nodes[i].getEdges().size() ; j++) {
-                    answer[i][nodes[i].getEdges()[j].neighbourIndex]++;
+                for(unsigned int j = 0 ; j < nodes[i].getOutEdges().size() ; j++) {
+                    answer[i][nodes[i].getOutEdges()[j].neighbourIndex]++;
                 }
 
             }
@@ -62,6 +64,23 @@ class graph {
             }
 
             std::cout << std::endl;
+        }
+
+
+        bool hasCycle(unsigned int current, std::vector<unsigned int> ancestors) {
+            //dfs to find if the graph has a cycle
+
+            ancestors.push_back(current);
+
+            for ( unsigned int i = 0 ; i < nodes[current].getOutEdges().size() ; i++ ) {
+                if ( std::find(ancestors.begin(), ancestors.end(), nodes[current].getOutEdges()[i].neighbourIndex) != ancestors.end() ) { //if getOutEdges()[i] is an ancestor
+                    return true;
+                }
+                if(hasCycle(nodes[current].getOutEdges()[i].neighbourIndex, ancestors)) {
+                    return true;
+                }
+            }
+            return false;
         }
     protected:
 

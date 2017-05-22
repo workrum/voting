@@ -3,7 +3,7 @@
 
 #include <vector>
 
-struct outEdge {
+struct edge {
         unsigned int neighbourIndex;
         double weight;
 };
@@ -28,18 +28,30 @@ class node
             return value;
         }
 
-        void addEdge(unsigned int index, double weight) {
-            outEdge newEdge;
+        void addOutEdge(unsigned int index, double weight) {
+            edge newEdge;
             newEdge.neighbourIndex = index;
             newEdge.weight = weight;
-
             outEdges.push_back(newEdge);
 
             return;
         }
 
-        std::vector<outEdge> getEdges() {
+        void addInEdge(unsigned int index, double weight) {
+            edge newEdge;
+            newEdge.neighbourIndex = index;
+            newEdge.weight = weight;
+            inEdges.push_back(newEdge);
+
+            return;
+        }
+
+        std::vector<edge> getOutEdges() {
             return outEdges;
+        }
+
+        std::vector<edge> getInEdges() {
+            return inEdges;
         }
 
         unsigned int getIndex() {
@@ -55,7 +67,8 @@ class node
     private:
         unsigned int index;
         nodeType value;
-        std::vector<outEdge> outEdges;
+        std::vector<edge> outEdges;
+        std::vector<edge> inEdges;
 };
 
 #endif // NODE_H

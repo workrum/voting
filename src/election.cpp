@@ -165,8 +165,6 @@ struct linkedListItem {
 std::vector<candidate *> election::getSchulzeResult() {
     resetScores();
 
-    //return getRankedPairsResult();
-
     //find pairwise rankings as in ranked pairs
     std::vector<rankedPair> rankedPairs;
     for ( unsigned int i = 0 ; i < candidates.size() ; i++ ) {
@@ -236,9 +234,9 @@ std::vector<candidate *> election::getSchulzeResult() {
             indexesUsed.push_back(false);
         }
 
-        for ( unsigned int k = 0 ; k < (schulzeGraph.getNodes()[i]).getEdges().size() ; k++) {
-            unsigned int neighbourIndex = schulzeGraph.getNodes()[i].getEdges()[k].neighbourIndex;
-            unsigned int weight = (unsigned int)(schulzeGraph.getNodes()[i].getEdges()[k].weight);
+        for ( unsigned int k = 0 ; k < (schulzeGraph.getNodes()[i]).getOutEdges().size() ; k++) {
+            unsigned int neighbourIndex = schulzeGraph.getNodes()[i].getOutEdges()[k].neighbourIndex;
+            unsigned int weight = (unsigned int)(schulzeGraph.getNodes()[i].getOutEdges()[k].weight);
 
             if (dijkstraValues[neighbourIndex] == 0 || weight > dijkstraValues[neighbourIndex]) {
                 dijkstraValues[neighbourIndex] = dijkstraValues[i] + weight;
@@ -264,9 +262,9 @@ std::vector<candidate *> election::getSchulzeResult() {
             }
 
             //use modified Dijkstra to find strongest path to each other node
-            for (unsigned int k = 0 ; (carryOn) && (k < (schulzeGraph.getNodes()[largestIndex]).getEdges().size()) ; k++) {
-                unsigned int neighbourIndex = schulzeGraph.getNodes()[largestIndex].getEdges()[k].neighbourIndex;
-                unsigned int weight = (unsigned int)(schulzeGraph.getNodes()[largestIndex].getEdges()[k].weight);
+            for (unsigned int k = 0 ; (carryOn) && (k < (schulzeGraph.getNodes()[largestIndex]).getOutEdges().size()) ; k++) {
+                unsigned int neighbourIndex = schulzeGraph.getNodes()[largestIndex].getOutEdges()[k].neighbourIndex;
+                unsigned int weight = (unsigned int)(schulzeGraph.getNodes()[largestIndex].getOutEdges()[k].weight);
 
                 if ((indexesUsed[neighbourIndex] == false) && (dijkstraValues[neighbourIndex] == 0 || std::min(dijkstraValues[largestIndex], weight) > dijkstraValues[neighbourIndex])) {
                     dijkstraValues[neighbourIndex] = std::min(dijkstraValues[largestIndex], weight);
@@ -368,7 +366,6 @@ void printMatrix(std::vector<std::vector<int>> matrix) {
 }
 
 std::vector<candidate *> election::getRankedPairsResult() {
-    //redo to use graph instead of laplacian matrix
 
     std::vector<rankedPair> rankedPairs;
     std::vector<std::vector<int>> laplaceMatrix(candidates.size(), std::vector<int>(candidates.size(), 0));
@@ -406,55 +403,33 @@ std::vector<candidate *> election::getRankedPairsResult() {
         }
     }
 
-    std::sort(rankedPairs.begin(), rankedPairs.end(), greater());
-    std::cout << std::endl;
-    for ( unsigned int k = 0 ; k < rankedPairs.size() ; k++ ) {
-        std::cout << std::endl;
-        std::cout << rankedPairs[k].Aindex << " " << rankedPairs[k].Bindex << " " << rankedPairs[k].AoverB << " " << rankedPairs[k].BoverA;
+    graph<candidate> pairsGraph;
+    for ( unsigned int i = 0 ; i < candidates.size() ; i++ ) {
+        unsigned int j = pairsGraph.addNode(candidates[i]);
+        if (j != i ) {
+            throw "j != i";
+        }
     }
-    std::cout << std::endl;
 
-    //lock in step
-    for (unsigned int l = 0 ; l < rankedPairs.size() ; l++ ) {
-        if(rankedPairs[l].AoverB > rankedPairs[l].BoverA) {
-            std::vector<std::vector<int>> newLaplaceMatrix = laplaceMatrix;
+    //"lock in" step
+    //adds edges to the graph as long as it doesn't create a cycle
+    for ( unsigned int j = 0 ; j < rankedPairs.size() ; j++ ) {
+        graph<candidate> tempGraph = pairsGraph;
+        tempGraph.addEdge(rankedPairs[j].Aindex, rankedPairs[j].Bindex, rankedPairs[j].AoverB);
 
-            newLaplaceMatrix[rankedPairs[l].Aindex][rankedPairs[l].Bindex]++;
-            newLaplaceMatrix[rankedPairs[l].Aindex][rankedPairs[l].Aindex]--;
+        std::vector<unsigned int> emptyAncestors;
 
-            long matrixRank  = 0;
-            long minusMatrixTrace = 0;
-
-            for ( unsigned int a = 0 ; a < newLaplaceMatrix.size() ; a++ ) {
-                minusMatrixTrace -= newLaplaceMatrix[a][a];
-
-                //Not a row of 0s
-                if(newLaplaceMatrix[a][a] != 0) {
-                    matrixRank++;
-                }
-            }
-
-            //if no cycle introduced
-            if (minusMatrixTrace <= (matrixRank * 2)) {
-                printMatrix(laplaceMatrix);
-                laplaceMatrix = newLaplaceMatrix;
-            }
+        if (!tempGraph.hasCycle( rankedPairs[j].Aindex, emptyAncestors)) {
+            pairsGraph.addEdge(rankedPairs[j].Aindex, rankedPairs[j].Bindex, rankedPairs[j].AoverB);
         }
     }
 
     std::vector<candidate *> winners;
 
-    //scan through Laplacian matrix for no incoming nodes
-    for ( unsigned int i = 0 ; i < laplaceMatrix.size() ; i++ ){
-        bool check = true;
-        for (unsigned int j = 0 ; j < laplaceMatrix[i].size() && check ; j++ ) {
-
-            if (laplaceMatrix[j][i] != 0 && i != j) {
-                check = false;
-            }
-        }
-        if (check) {
-            winners.push_back(&candidates[i]);
+    //scan through graph for no incoming nodes
+    for ( unsigned int i = 0 ; i < pairsGraph.getNodes().size() ; i++ ) {
+        if ( pairsGraph.getNodes()[i].getInEdges().size() == 0 ) {
+            winners.push_back(&(candidates[i]));
         }
     }
 
